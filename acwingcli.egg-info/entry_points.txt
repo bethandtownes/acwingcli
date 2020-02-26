@@ -1,3 +1,0 @@
-[console_scripts]
-acwingcli = acwingcli.__main__:main
-
