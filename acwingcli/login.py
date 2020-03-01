@@ -117,6 +117,7 @@ def trait_finished_judging(message) -> Optional[List[str]]:
 def trait_finished_running(message) -> Optional[List[str]]:
     return lift_optional(list(map(lambda x:x(message), [trait_stderr, trait_run_status, trait_problem_run_code_status])))
 
+
 def make_submission_header(url, code):
     res = copy.deepcopy(submit_code_data)
     res['code'] = code
@@ -161,6 +162,7 @@ def make_runcode_header(url, code, input_data):
     res['problem_id'] = get_problem_id(url)
     res['input'] = input_data
     return res
+
     
 def runcode(url, code, input_data):
     s, cook = prepare_session()
@@ -201,7 +203,7 @@ def display_runcode_result(message):
 
 
 def get_problem_id(url):
-    print('url is ' + url)
+    # print('url is ' + url)
     if url[-1] != '/':
         url = url + '/'
     match = lift_optional(re.findall('\/problem\/content\/[0-9]+\/', url))

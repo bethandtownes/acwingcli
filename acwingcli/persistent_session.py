@@ -1,4 +1,4 @@
-from .login import prepare_session, make_submission_header, trait_finished_judging, ensure_content_url
+from .login import prepare_session, make_submission_header, trait_finished_judging, ensure_content_url, make_runcode_header
 from .headers import socket_header
 from multiprocessing.connection import Listener
 import requests
@@ -19,14 +19,14 @@ import copy
 import getpass
 import threading
 
-from .login import trait_finished_judging
+from .login import trait_finished_judging, trait_finished_running
 
 import websocket
 try:
     import thread
 except ImportError:
     import _thread as thread
-import time
+
 
 import queue
 q = queue.Queue()
@@ -38,6 +38,9 @@ def on_message(ws, message):
         q.put(json.dumps(data))
     elif data['activity'] == 'problem_run_code_status':
         q.put(json.dumps(data))
+    else:
+        pass
+        # q.put(json.dumps(data))
 
     
 def on_error(ws, error):
@@ -61,17 +64,33 @@ def server_submit(acwing_socket, local_client, url, code = ''):
             break
     return
 
+def server_run(acwing_socket, local_client, url, code, input_data):
+    acwing_socket.send(json.dumps(make_runcode_header(ensure_content_url(url), code, input_data)))
+    while not (response := get_Q()) is None:
+        local_client.send(response)
+        if trait_finished_running(response):
+            break
+    return
+
+
+import json
 def handle(conn, acwing_socket):
     try:
         while True:
-            msg = conn.recv()
-            if msg == 'close':
+            msg = json.loads(conn.recv())
+            if msg['activity'] == 'close':
                 conn.close()
                 acwing_socket.close()
                 break
-            elif msg.find('send') != -1:
-                op, url, code = msg.split('$$')
+            elif msg['activity'] == 'send':
+                url = msg['url']
+                code = msg['code']
                 server_submit(acwing_socket, conn, url, code)
+            elif msg['activity'] == 'run':
+                url = msg['url']
+                code = msg['code']
+                input_data = msg['input_data']
+                server_run(acwing_socket, conn, url, code, input_data)
             else:
                 pass
     except EOFError:
@@ -86,7 +105,7 @@ def send_debug_message(conn, message):
     conn.send(json.dumps({'local_debug_message' : message}))
     
     
-def runserver():
+def runserver(verbose = False):
     s, cook = prepare_session()
     acwing_socket = websocket.WebSocketApp('wss://www.acwing.com/wss/chat/',
                                            header = socket_header,
@@ -101,10 +120,9 @@ def runserver():
     listener = Listener(address, authkey=b'1234')
     while True:
         conn = listener.accept()
-        send_debug_message(conn, 'welcome')
-        send_debug_message(conn, str(listener.last_accepted))
-        # conn.send('welcome')
-        # conn.send(str(listener.last_accepted))
+        if verbose == True:
+            send_debug_message(conn, 'welcome')
+            send_debug_message(conn, str(listener.last_accepted))
         t = threading.Thread(target = handle, args = (conn,acwing_socket))
         t.daemon = True
         t.start()
