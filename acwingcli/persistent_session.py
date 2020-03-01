@@ -52,7 +52,6 @@ def get_Q():
         return element
     except:
         return None
-    
 
 def server_submit(acwing_socket, local_client, url, code = ''):
     acwing_socket.send(json.dumps(make_submission_header(ensure_content_url(url), code)))

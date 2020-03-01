@@ -2,3 +2,6 @@
 .ipynb_checkpoints
 __pycache__
 acwingcli.egg-info
+acwing-venv
+*.log
+.Rhistory

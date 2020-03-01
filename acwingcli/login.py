@@ -243,7 +243,7 @@ def display_accepted_information(message, submission_detail):
     
 def display_fail_information(message, submission_detail, title):
     logger = ['', '', '', '', '', '']
-    logger[0] = '\r[✗] ' + submission_detail['passed'] + ' cases passed' + ' (' + submission_detail['time'] + ')'
+    logger[0] = '\r[✗] ' + submission_detail['passed'] + ' cases passed' + ' (' + submission_detail['time'] + ', ' + submission_detail['memory'] + ')'
     logger[1] = '\r[✗] Failed Testcase: ' + message['testcase_input'].strip()
     logger[2] = '\r[✗] Answer: ' + message['testcase_user_output'].strip()
     logger[3] = '\r[✗] Expected Answer: ' + message['testcase_output'].strip()

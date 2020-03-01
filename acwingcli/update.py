@@ -10,6 +10,11 @@ import time
 
 import acwingcli.config as config
 import acwingcli.commandline_writer as cmdwrite
+import acwingcli.utils as utils
+import glob
+import os
+import acwingcli.utils as utils
+
 
 
 def process_table_item(item):
@@ -20,6 +25,9 @@ def problem_id(entry):
 
 def problem_link(entry):
     return 'https://www.acwing.com' + entry[2].find('a')['href']
+
+def problem_submission_link(entry):
+    return problem_link(entry).replace('content', 'content/submission')
 
 def problem_rate(entry):
     return entry[3].find('span').text
@@ -50,6 +58,7 @@ def problem_status(entry):
     
 def process_problem_item(entry):
     return { problem_id(entry) : { 'link' : problem_link(entry),
+                                   'submission_link': problem_submission_link(entry),
                                    'name' : problem_name(entry),
                                    'rate' : problem_rate(entry),
                                    'status' : problem_status(entry),
@@ -70,6 +79,26 @@ def number_of_pages():
                      soup.find('ul', {'class' : 'pagination'}).findAll('li')))
     
     return max(table)
+
+
+
+
+def testcases(problem_id:str, case_in:str, case_out:str):
+    owd = os.getcwd()
+    try:
+        os.chdir(utils.get_or_create_problem_folder(problem_id))
+        new_cases = {case_in : case_out}
+        for sample_in, sample_out in map(lambda x: (x, x.replace('in', 'out')), glob.glob('sample*.in')):
+            new_cases.update({utils.get_string_from_file(sample_in).decode('utf-8') : utils.get_string_from_file(sample_out).decode('utf-8')})
+        for case_id, case in enumerate(new_cases.items()):
+            with open('sample' + str(case_id) + '.in', 'w') as f:
+                f.write(case[0])
+                f.close()
+            with open('sample' + str(case_id) + '.out', 'w') as f:
+                f.write(case[1])
+                f.close()
+    finally:
+        os.chdir(owd)
 
 
 def problem_list():
@@ -105,3 +134,5 @@ def update_problem_list(url):
         cmdwrite.progress(str(finished_pages.value) + '/' + str(total_pages))
 
     return res
+
+

@@ -6,6 +6,11 @@ def status(s, width = 100):
     sys.stdout.write('\r' + Fore.YELLOW +Style.BRIGHT + '[Status] ' + s + Style.RESET_ALL)
     sys.stdout.flush()
 
+def error(s, width = 100):
+    sys.stdout.write('\r' + ' ' * 100)
+    sys.stdout.write('\r' + Fore.RED +Style.BRIGHT + '[Error] ' + s + Style.RESET_ALL)
+    sys.stdout.flush()    
+
 
 def progress(s, width = 100):
     sys.stdout.write('\r' + ' ' * 100)
