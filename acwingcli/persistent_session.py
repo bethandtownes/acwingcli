@@ -49,6 +49,16 @@ def on_error(ws, error):
 def on_close(ws):
     return
 
+def on_open(ws):
+    def run(*args):
+        for i in range(3):
+            time.sleep(1)
+            ws.send("Hello %d" % i)
+        time.sleep(1)
+        ws.close()
+        print("thread terminating...")
+    thread.start_new_thread(run, ())
+
 def get_Q():
     try:
         element = q.get(True, 20)
@@ -56,14 +66,38 @@ def get_Q():
     except:
         return None
 
-def server_submit(acwing_socket, local_client, url, code = ''):
-    acwing_socket.send(json.dumps(make_submission_header(ensure_content_url(url), code)))
-    while not (response := get_Q()) is None:
-        local_client.send(response)
-        if trait_finished_judging(response):
-            break
-    return
 
+def server_submit(acwing_socket, local_client, url, code):
+    total_attempt = 0
+    while total_attempt <= 10:
+        try:
+            total_attempt += 1
+            local_client.send(json.dumps({'local_debug_message': 'submission attempt {}'.format(total_attempt)}))
+            acwing_socket.send(json.dumps(make_submission_header(ensure_content_url(url), code)))
+            while not (response := get_Q()) is None:
+                local_client.send(response)
+                if trait_finished_judging(response):
+                    break
+            return
+        except Exception as e:
+            local_client.send(json.dumps({'local_debug_message' : '[server submit] got exception ' + str(e.args)}))
+            if total_attempt > 10:
+                local_client.send(json.dumps({'local_debug_message': 'maxed out attemp'}))
+                return
+            time.sleep(1)
+            
+
+
+def stopserver(acwing_socket, conn, listener):
+    conn.send(json.dumps({'local_debug_message' : 'preparing to close acwing websocket'}))
+    acwing_socket.close()
+    del acwing_socket
+    conn.send(json.dumps({'local_debug_message' : 'acwing websocket closed'}))
+    conn.send(json.dumps({'local_debug_message' : 'preparing to close connection'}))
+    conn.close()
+    
+
+    
 def server_run(acwing_socket, local_client, url, code, input_data):
     acwing_socket.send(json.dumps(make_runcode_header(ensure_content_url(url), code, input_data)))
     while not (response := get_Q()) is None:
@@ -74,7 +108,7 @@ def server_run(acwing_socket, local_client, url, code, input_data):
 
 
 import json
-def handle(conn, acwing_socket):
+def handle(conn, acwing_socket, listener):
     try:
         while True:
             msg = json.loads(conn.recv())
@@ -91,21 +125,33 @@ def handle(conn, acwing_socket):
                 code = msg['code']
                 input_data = msg['input_data']
                 server_run(acwing_socket, conn, url, code, input_data)
+            elif msg['activity'] == 'stopserver':
+                conn.send(json.dumps({'local_debug_message' : 'preparing to stopserver'}))
+                stopserver(acwing_socket, conn, listener)
+                break
             else:
                 pass
     except EOFError:
+        conn.close()
+        del conn
         return
     except BrokenPipeError:
+        conn.close()
+        del conn
         return
     except ConnectionResetError:
-        return         
+        conn.close()
+        del conn
+        return
+    
+    
 
 
 def send_debug_message(conn, message):
     conn.send(json.dumps({'local_debug_message' : message}))
     
     
-def runserver(verbose = False):
+def runserver():
     s, cook = prepare_session()
     acwing_socket = websocket.WebSocketApp('wss://www.acwing.com/wss/chat/',
                                            header = socket_header,
@@ -118,13 +164,14 @@ def runserver(verbose = False):
     wst.start()
     address = ('localhost', 6001)     # family is deduced to be 'AF_INET'
     listener = Listener(address, authkey=b'1234')
-    while True:
-        conn = listener.accept()
-        if verbose == True:
+    try:
+        while True:
+            conn = listener.accept()
             send_debug_message(conn, 'welcome')
             send_debug_message(conn, str(listener.last_accepted))
-        t = threading.Thread(target = handle, args = (conn,acwing_socket))
-        t.daemon = True
-        t.start()
+            t = threading.Thread(target = handle, args = (conn, acwing_socket, listener))
+            t.daemon = True
+            t.start()
+    except:
+        pass
     listener.close()
-

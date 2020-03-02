@@ -14,4 +14,5 @@ with open(problem_cache_file_path, 'r') as f:
 path_problem_book = config_data['path_problem_book_folder']     
 
 
-print(problem_cache_file_path)
+client_debug_mode = False
+server_debug_mode = False
