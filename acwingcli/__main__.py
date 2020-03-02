@@ -35,6 +35,8 @@ ap.add_argument('-f', '--files', nargs = '+',  help = 'submit file')
 ap.add_argument('-r', '--run', help = 'run code')
 ap.add_argument('-g', '--get', help = 'get problem')
 ap.add_argument('-s', '--serversubmit', help = 'run code')
+
+ap.add_argument('-setup', action = 'store_true')
 ap.add_argument('-login', action = 'store_true')
 ap.add_argument('-all', action = 'store_true')
 ap.add_argument('-debug', action = 'store_true')
@@ -278,13 +280,19 @@ def shutdown_server():
         cmdwrite.client_debug('no server connection, exit')
 
 
-
+import acwingcli.actions as actions
 
 def main():
     args = vars(ap.parse_args())
+
     if args.get('login') == True:
         prepare_session()
         return
+
+    if args.get('setup') == True:
+        actions.setup_assistant()
+        return 
+
     
     prev_client_debug_mode = config.client_debug_mode
     prev_server_debug_mode = config.server_debug_mode

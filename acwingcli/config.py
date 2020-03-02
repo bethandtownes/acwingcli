@@ -1,4 +1,8 @@
+
 import json
+
+
+config_directory = None
 config_file_path = '/home/jasonsun0310/.acwing/config.json'
 
 with open(config_file_path) as config_file:

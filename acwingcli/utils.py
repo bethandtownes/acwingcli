@@ -32,3 +32,4 @@ def get_acwing_server_process():
 def clean_up_server_processes():
     for process in get_acwing_server_process():
         process.kill()
+
