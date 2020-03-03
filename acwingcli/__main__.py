@@ -1,14 +1,20 @@
-import acwingcli
+import json
+import acwingcli.actions as actions
 import sys
 import os
+
+
+import acwingcli.commandline_writer as cmdwrite
+
+# import acwingcli
 import argparse
 import subprocess
-import acwingcli.problembook as problembook
+
 import acwingcli.update as update
 import os
 import websocket
 import json
-import acwingcli.config as config
+
 import threading
 import psutil
 import acwingcli.utils as utils
@@ -24,10 +30,8 @@ from .login import prepare_session, make_runcode_header, trait_finished_running
 from .readfile import get_string_from_file
 from .login import submit, get_submission, display_submission_result
 from .persistent_session import runserver
-from .update import problem_list
 from functools import reduce
 import acwingcli.persistent_session as localserver
-import acwingcli.commandline_writer as cmdwrite
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-S', '--submit', help = 'submit file')
@@ -38,15 +42,14 @@ ap.add_argument('-s', '--serversubmit', help = 'run code')
 
 ap.add_argument('-setup', action = 'store_true')
 ap.add_argument('-login', action = 'store_true')
+ap.add_argument('-clean', action = 'store_true')
 ap.add_argument('-all', action = 'store_true')
 ap.add_argument('-debug', action = 'store_true')
 ap.add_argument('-initserver', action = 'store_true')
 ap.add_argument('-updateproblems', action = 'store_true')
 ap.add_argument('-stopserver', action = 'store_true')
 ap.add_argument('-runserver', action = 'store_true')
-
-
-
+ap.add_argument('-debuginfo', action = 'store_true')
 
 
 def make_submission_url(url):
@@ -65,6 +68,7 @@ def has_valid_testcase(response: dict):
         return False
     
 def display_judge_status(response : dict, problem_id:str):
+    import acwingcli.config as config
     url = config.problem_cache[eval(problem_id)]['submission_link']
     if response['status'] == 'ACCEPTED':
         cmdwrite.judge_status('[✓] Judge Status: {}\n'.format('Accepted'), color = Fore.GREEN)
@@ -158,7 +162,8 @@ def runcode(problem_id, code, input_data, output_data):
         return    
     try:
         s, cook = prepare_session()
-        url = config.problem_cache[eval(problem_id)]['link']
+        import acwingcli.config as c
+        url = c.problem_cache[eval(problem_id)]['link']
         ws = websocket.create_connection('wss://www.acwing.com/wss/chat/',
                                          header = socket_header,
                                          cookie = cook)
@@ -180,6 +185,7 @@ def runcode(problem_id, code, input_data, output_data):
         raise(Exception(e.message))
     
 def serverrun_single(problem_id, code, input_data, output_data):
+    import acwingcli.config as config
     url = config.problem_cache[eval(problem_id)]['link']
     address = ('localhost', 6001)
     conn = Client(address, authkey=b'1234')
@@ -209,6 +215,7 @@ def serversubmit(problem_id, code):
     while total_attempt <= 5:
         total_attempt += 1
         try:
+            import acwingcli.config as config
             url = config.problem_cache[eval(problem_id)]['link']
             address = ('localhost', 6001)
             conn = Client(address, authkey=b'1234')
@@ -280,25 +287,23 @@ def shutdown_server():
         cmdwrite.client_debug('no server connection, exit')
 
 
-import acwingcli.actions as actions
 
 def main():
     args = vars(ap.parse_args())
-
+    if args.get('debuginfo') == True:
+        import acwingcli.commandline_dispatcher as cmd_dispatcher
+        cmd_dispatcher.debuginfo()
+        return
     if args.get('login') == True:
         prepare_session()
         return
-
     if args.get('setup') == True:
-        actions.setup_assistant()
-        return 
-
-    
-    prev_client_debug_mode = config.client_debug_mode
-    prev_server_debug_mode = config.server_debug_mode
-    if args.get('debug') == True:
-        config.client_debug_mode = True
-        config.server_debug_mode = True
+        import acwingcli.config as config
+        config.setup_assistant()
+        return
+    if args.get('clean') == True:
+        actions.clean()
+        return
     if not args.get('submit') is None:
         code = get_string_from_file(args['submit']).decode('utf-8')
         submit('https://www.acwing.com/problem/content/description/1/', code)        
@@ -332,7 +337,8 @@ def main():
                     del pool
         elif args.get('all') == True:
             owd = os.getcwd()
-            os.chdir(utils.get_or_create_problem_folder(problem_id))
+            os.chdir(os.path.dirname(file_abspath))
+            # os.chdir(utils.get_or_create_problem_folder(problem_id))
             files = glob.glob('sample*.in')
             N = len(files)
             l = Lock()
@@ -364,6 +370,7 @@ def main():
     elif not args.get('initserver') is None and args['initserver'] == True:
         p = subprocess.Popen(['acwingcli', '-runserver'], stdout=subprocess.PIPE)
     elif not args.get('get') is None:
+        import acwingcli.problembook as problembook
         problembook.get_problem(args['get'])
     elif not args.get('updateproblems') is None and args['updateproblems'] == True:
         problem_list()
@@ -373,9 +380,6 @@ def main():
         utils.clean_up_server_processes()
     elif not args.get('runserver') is None:
         runserver()
-    config.client_debug_mode = prev_client_debug_mode
-    config.server_debug_mode = prev_server_debug_mode
-
 
 if __name__ == '__main__':
     main()

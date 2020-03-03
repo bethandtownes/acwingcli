@@ -1,11 +1,11 @@
 import os
 import psutil
-import acwingcli.config as config
+# import acwingcli.config as config
 import functools
 
 
-
 def get_or_create_problem_folder(problem_id:str):
+    import acwingcli.config as config
     problem_directory = (config.path_problem_book + problem_id + '.' + config.problem_cache[eval(problem_id)]['name'] + '/').replace(' ','')
     try:
         os.makedirs(problem_directory)
@@ -32,4 +32,6 @@ def get_acwing_server_process():
 def clean_up_server_processes():
     for process in get_acwing_server_process():
         process.kill()
+
+
 

@@ -8,13 +8,11 @@ import sys
 import pickle
 import time
 
-import acwingcli.config as config
+
 import acwingcli.commandline_writer as cmdwrite
-import acwingcli.utils as utils
 import glob
 import os
 import acwingcli.utils as utils
-
 
 
 def process_table_item(item):
@@ -40,10 +38,10 @@ def problem_difficulty(entry):
         return 'medium'
     elif data == '困难':
         return 'hard'
-
+    
 def problem_name(entry):
     return entry[2].find('a').text.strip()
-    
+
 def problem_status(entry):
     if entry[0].find('span') is None:
         return 'unattemped'
@@ -55,7 +53,7 @@ def problem_status(entry):
              return 'attempted'
         else:
             return title
-    
+        
 def process_problem_item(entry):
     return { problem_id(entry) : { 'link' : problem_link(entry),
                                    'submission_link': problem_submission_link(entry),
@@ -72,16 +70,13 @@ def global_context(lock_, total_pages_, finished_pages_):
     total_pages  = total_pages_
     finished_pages = finished_pages_
 
-def number_of_pages():
-    session, cookie = prepare_session()
+def number_of_pages(path_cookie):
+    session, cookie = prepare_session(path_cookie)
     soup = BeautifulSoup(session.get('https://www.acwing.com/problem/1/', headers = base_header).content, 'html5lib' )
     table = list(map(lambda x : eval(x.find('a')['id'].replace('page', '').replace('_', '')),
                      soup.find('ul', {'class' : 'pagination'}).findAll('li')))
     
     return max(table)
-
-
-
 
 def testcases(problem_id:str, case_in:str, case_out:str):
     owd = os.getcwd()
@@ -100,30 +95,34 @@ def testcases(problem_id:str, case_in:str, case_out:str):
     finally:
         os.chdir(owd)
 
-
-def problem_list():
+def problem_list(problem_cache_file_path = None, path_cookie = None):
     lock = Lock()
     cmdwrite.status('Acquiring Data')
-    N = number_of_pages()
+    N = number_of_pages(path_cookie)
     cmdwrite.status('Initializing Process Pool')
     counter = Value('i', 0)
-    urls = ['https://www.acwing.com/problem/' + str(i) + '/' for i in range(1, N + 1)]
+    urls = [('https://www.acwing.com/problem/' + str(i) + '/', path_cookie) for i in range(1, N + 1)]
     with Pool(min(N, 40), initializer = global_context, initargs = (lock, N, counter)) as pool:
-        result = pool.map(update_problem_list, urls)
+        result = pool.starmap(update_problem_list, urls)
         final_result = {}
         for problems in result:
             final_result.update(problems)
         cmdwrite.status('Updating Cache File')
         time.sleep(0.3)
-        with open(config.problem_cache_file_path, 'w') as f:
-            json.dump(final_result, f)
+        if problem_cache_file_path == None:
+            import acwingcli.config as config
+            with open(config.problem_cache_file_path, 'w') as f:
+                json.dump(final_result, f)
+        else:
+            with open(problem_cache_file_path, 'w') as f:
+                json.dump(final_result, f)
         cmdwrite.status('Finished')
         print(Style.RESET_ALL)
 
 
-def update_problem_list(url):
+def update_problem_list(url, path_cookie):
     res = {}
-    session, cookie = prepare_session()
+    session, cookie = prepare_session(path_cookie)
     soup = BeautifulSoup(session.get(url, headers = base_header).content, 'html5lib' )
     table = soup.find('table', {'class' : 'table-responsive'}).find('tbody').findAll('tr')
     table = list(map(lambda x : x.findAll('td'), table))

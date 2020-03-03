@@ -29,11 +29,14 @@ login_data = {'csrfmiddlewaretoken': 'TODO',
 BASE_URL = 'https://www.acwing.com'
 
 
-def prepare_session():
+def prepare_session(path_cookie = None):
+    if path_cookie is None:
+        import acwingcli.config
+        path_cookie = acwingcli.config.path_cookie
     s = requests.session()
     need_to_update_cookie = False
-    if os.path.exists('/home/jasonsun0310/.local/share/acwing/cookie'):
-        with open('/home/jasonsun0310/.local/share/acwing/cookie', 'rb') as f:
+    if os.path.exists(path_cookie):
+        with open(path_cookie, 'rb') as f:
             ck = pickle.load(f)
             for cj in ck:
                 if cj.is_expired():
@@ -48,8 +51,9 @@ def prepare_session():
             return (s, cook)
     else:
         url = 'https://www.acwing.com/'
-        username = str(input('Enter your Acwing username:'))
-        password = str(getpass.getpass(prompt = 'Enter your Acwing password:'))
+        print()
+        username = str(input('[Login] Enter your Acwing username:'))
+        password = str(getpass.getpass(prompt = '[Login] Enter your Acwing password:'))
         response = BeautifulSoup(s.get(url).content, 'html5lib')
         login = copy.deepcopy(login_data)
         login['username'] = username
@@ -59,7 +63,7 @@ def prepare_session():
         a = s.post('https://www.acwing.com/user/account/signin/', data = login, headers = header)
         token = a.cookies['csrftoken']
         cook = 'csrftoken=' + a.cookies['csrftoken'] + '; ' + 'sessionid=' + a.cookies['sessionid']
-        with open('/home/jasonsun0310/.local/share/acwing/cookie', 'wb') as f:
+        with open(path_cookie, 'wb') as f:
             pickle.dump(a.cookies, f)
         return (s, cook)
 
@@ -73,7 +77,7 @@ def prepare_session():
         headers['Cookie'] = 'csrftoken=' + token
         a = s.post('https://www.acwing.com/user/account/signin/', data = login_data, headers = headers)
         cook = 'csrftoken=' + a.cookies['csrftoken'] + '; ' + 'sessionid=' + a.cookies['sessionid']
-        with open('/home/jasonsun0310/.local/share/acwing/cookie', 'wb') as f:
+        with open(path.cookie, 'wb') as f:
             pickle.dump(a.cookies, f)
             print('wrote cookies')
             print(a.cookies.values())
@@ -141,7 +145,6 @@ def submit(url, code = ''):
                                       cookie = cook)
     ws.settimeout(20)
     ws.send(json.dumps(make_submission_header(url, code)))
-    # print('Code sent, waiting for result', end = '')
     sys.stdout.write(Fore.YELLOW +Style.BRIGHT + '[ ] Code sent, waiting for result')
     sys.stdout.flush()
     for i in range(0, 100):
@@ -185,25 +188,9 @@ def runcode(url, code, input_data):
             break
     ws.close()    
 
-def display_runcode_result(message):
-    print(message)
-    # if message['status'] == 'ACCEPTED':
-    #     display_accepted_information(message, process_submission_detail(get_submission(url)))
-    # elif message['status'] == 'COMPILE_ERROR':
-    #     display_compile_error_information(message)
-    # elif message['status'] == 'MEMORY_LIMIT_EXCEEDED':
-    #     display_fail_information(message, process_submission_detail(get_submission(url)), 'Memory Limit Exceeded')
-    # elif message['status'] == 'TIME_LIMIT_EXCEEDED':
-    #     display_fail_information(message, process_submission_detail(get_submission(url)), 'Time Limit Exceeded')
-    # elif message['status'] == 'RUNTIME_ERROR':
-    #     display_fail_information(message, process_submission_detail(get_submission(url)), 'Runtime Error')
-    # elif message['status'] == 'WRONG_ANSWER':
-    #     display_fail_information(message, process_submission_detail(get_submission(url)), 'Wrong Answer')
-    
 
 
 def get_problem_id(url):
-    # print('url is ' + url)
     if url[-1] != '/':
         url = url + '/'
     match = lift_optional(re.findall('\/problem\/content\/[0-9]+\/', url))
@@ -296,13 +283,3 @@ def get_submission(url):
     soup = BeautifulSoup(response.content, 'html5lib')
     session.close()
     return parse_submission_detail(soup)
-
-
-
-
-# def main():
-#     s, token, cook = login()
-#     print(Fore.LIGHTYELLOW_EX, '[Login Success]')
-#     submit('https://www.acwing.com/problem/content/submission/1/', '')
-
-
